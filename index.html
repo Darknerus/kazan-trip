@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поездка в Казань · Органайзер</title>
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=7104909c-fb9b-4f64-aa1a-24a900ab4c51&lang=ru_RU"></script>
+    <style>
+        :root {
+            --bg: #f5f7fa; --card-bg: #ffffff; --text: #2c3e50; --header-color: #1e3c72;
+            --accent: #ff6b6b; --accent-hover: #e55a5a; --border-light: #eef2f7;
+            --day-card-bg: #f8fafd; --day-border: #ff6b6b; --food-bg: #fff5f5;
+            --food-border: #ffe0e0; --shadow: 0 20px 50px rgba(0,0,0,0.1);
+            --modal-bg: rgba(0,0,0,0.85); --progress-bg: #e0e0e0; --progress-fill: #1e3c72;
+            --timer-bg: #1e3c72; --input-bg: #ffffff; --input-border: #ddd;
+            --table-border: #e0e0e0; --footer-text: #888; --theme-icon: '🌙';
+            --today-glow: rgba(30,60,114,0.15);
+        }
+        body.dark-theme {
+            --bg: #1a1d23; --card-bg: #2a2d35; --text: #e0e0e0; --header-color: #bbdefb;
+            --border-light: #3a3d44; --day-card-bg: #2f3239; --day-border: #ff6b6b;
+            --food-bg: #3d2e2e; --food-border: #5a4040; --shadow: 0 20px 50px rgba(0,0,0,0.5);
+            --modal-bg: rgba(0,0,0,0.9); --progress-bg: #3a3d44; --progress-fill: #ff6b6b;
+            --timer-bg: #2f3239; --input-bg: #3a3d44; --input-border: #5a5d64;
+            --table-border: #4a4d54; --footer-text: #aaa; --theme-icon: '☀️';
+            --today-glow: rgba(255,107,107,0.3);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--bg) 0%, #c3cfe2 100%);
+            color: var(--text); min-height: 100vh; padding: 20px;
+            transition: background 0.3s, color 0.3s;
+        }
+        body.dark-theme { background: linear-gradient(135deg, #1a1d23 0%, #2a2d35 100%); }
+        .trip-container {
+            max-width: 900px; margin: 0 auto; background: var(--card-bg);
+            border-radius: 28px; box-shadow: var(--shadow); overflow: hidden;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        header { text-align:center; padding:30px 20px 10px; position:relative; }
+        .logo { max-width:180px; height:auto; margin-bottom:10px; border-radius:20px; }
+        h1 { font-size:2.5rem; font-weight:700; color:var(--header-color); margin-bottom:10px; }
+        .theme-toggle {
+            position:absolute; top:20px; right:20px; background:none; border:none;
+            font-size:1.8rem; cursor:pointer; padding:5px; border-radius:50%;
+            width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+            transition:background 0.2s; background:var(--day-card-bg);
+            box-shadow:0 2px 8px rgba(0,0,0,0.1); z-index:10;
+        }
+        .theme-toggle:hover { background:var(--border-light); }
+        .theme-icon { font-style:normal; }
+        section { padding:20px 30px; border-bottom:1px solid var(--border-light); }
+        section:last-of-type { border-bottom:none; }
+        h2 {
+            font-size:1.8rem; color:var(--header-color); margin-bottom:18px;
+            padding-bottom:8px; border-bottom:3px solid var(--accent); display:inline-block;
+        }
+        .timer-block {
+            background:var(--timer-bg); color:white; border-radius:20px; padding:15px 25px;
+            margin:20px 0 5px; display:flex; flex-wrap:wrap; align-items:center;
+            justify-content:center; gap:15px; font-size:1.4rem; font-weight:600; text-align:center;
+        }
+        .timer-block span { background:rgba(255,255,255,0.15); padding:6px 14px; border-radius:30px; }
+        .weather-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(100px,1fr)); gap:12px; margin-top:15px; }
+        .weather-card {
+            background:var(--day-card-bg); border-radius:16px; padding:12px 8px; text-align:center;
+            box-shadow:0 4px 10px rgba(0,0,0,0.03); border:1px solid var(--border-light);
+            transition:transform 0.2s;
+        }
+        .weather-card:hover { transform:translateY(-3px); }
+        .weather-date { font-weight:600; margin-bottom:6px; font-size:0.9rem; }
+        .weather-icon { font-size:2.2rem; }
+        .weather-temp { font-size:1.2rem; font-weight:700; margin:5px 0; }
+        .weather-desc { font-size:0.85rem; margin-top:4px; opacity:0.8; }
+        .checklist { list-style:none; display:flex; flex-direction:column; gap:10px; margin:15px 0; }
+        .checklist li { display:flex; align-items:center; gap:10px; font-size:1rem; }
+        .checklist input[type="checkbox"] { width:20px; height:20px; accent-color:var(--accent); transform:scale(1.1); cursor:pointer; }
+        .progress-bar { width:100%; height:10px; background:var(--progress-bg); border-radius:10px; margin:15px 0 5px; overflow:hidden; }
+        .progress-fill { height:100%; width:0%; background:var(--progress-fill); border-radius:10px; transition:width 0.3s; }
+        .progress-text { font-size:0.9rem; font-weight:500; }
+        .map-img { width:100%; border-radius:20px; margin:15px 0; box-shadow:0 8px 20px rgba(0,0,0,0.08); cursor:pointer; transition:transform 0.2s; }
+        .map-img:hover { transform:scale(1.02); }
+        .schedule-list { list-style:none; display:flex; flex-direction:column; gap:25px; }
+        .day-card {
+            background:var(--day-card-bg); border-radius:20px; padding:20px 25px;
+            box-shadow:0 4px 12px rgba(0,0,0,0.03); border-left:6px solid var(--day-border);
+            transition:transform 0.2s, box-shadow 0.2s, background 0.3s; position:relative;
+        }
+        .day-card:hover { transform:translateY(-2px); box-shadow:0 10px 25px rgba(0,0,0,0.07); }
+        .day-card.today { background:var(--card-bg); box-shadow:0 0 20px var(--today-glow); border-left-color:var(--header-color); }
+        .day-title { font-size:1.3rem; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:10px; }
+        .day-date { background:#1e3c72; color:white; padding:4px 14px; border-radius:30px; font-size:0.85rem; font-weight:600; }
+        .day-events p { margin:8px 0; font-size:1rem; line-height:1.6; }
+        .day-events a { color:var(--accent); text-decoration:none; font-weight:600; border-bottom:1px dashed var(--accent); }
+        .day-events a:hover { color:var(--accent-hover); border-bottom-style:solid; }
+        .day-images { display:flex; flex-wrap:wrap; gap:12px; margin-top:15px; }
+        .day-images img { width:calc(50% - 6px); border-radius:14px; object-fit:cover; box-shadow:0 4px 10px rgba(0,0,0,0.05); }
+        .gcal-btn {
+            display:inline-block; margin-top:10px; font-size:0.85rem; color:var(--header-color);
+            text-decoration:none; border-bottom:1px dashed var(--header-color); font-weight:500;
+            background:none; border:none; cursor:pointer;
+        }
+        .gcal-btn:hover { color:var(--accent); border-bottom-color:var(--accent); }
+        .food-list { list-style:none; display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:12px; margin-top:10px; }
+        .food-list li { background:var(--food-bg); padding:12px 18px; border-radius:30px; font-weight:500; border:1px solid var(--food-border); }
+        .food-list li:hover { background:#ffebeb; }
+        #restaurantMap { width:100%; height:450px; border-radius:20px; overflow:hidden; margin-top:15px; box-shadow:0 8px 20px rgba(0,0,0,0.08); }
+        .budget-table { width:100%; border-collapse:collapse; margin-top:10px; }
+        .budget-table th, .budget-table td { padding:12px; border-bottom:1px solid var(--table-border); text-align:left; }
+        .budget-table th { background:var(--day-card-bg); font-weight:600; }
+        .budget-table input { width:100px; padding:6px; border-radius:8px; border:1px solid var(--input-border); background:var(--input-bg); color:var(--text); }
+        .total-row td { font-weight:700; border-top:2px solid var(--accent); }
+        .notes-area { width:100%; min-height:80px; border-radius:16px; padding:12px; font-family:inherit; font-size:0.95rem; border:1px solid var(--input-border); background:var(--input-bg); color:var(--text); resize:vertical; margin-top:8px; }
+        .contact-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:12px; }
+        .contact-card { background:var(--day-card-bg); border-radius:16px; padding:14px; border:1px solid var(--border-light); }
+        .contact-card h3 { font-size:1rem; margin-bottom:5px; color:var(--header-color); }
+        .playlist-wrapper { border-radius:20px; overflow:hidden; margin-top:10px; }
+        .playlist-wrapper iframe { width:100%; height:250px; border:none; }
+        .tip-calculator { background:var(--day-card-bg); border-radius:20px; padding:20px; margin-top:15px; display:flex; flex-wrap:wrap; gap:15px; align-items:center; }
+        .tip-calculator input, .tip-calculator select { padding:10px; border-radius:12px; border:1px solid var(--input-border); background:var(--input-bg); color:var(--text); }
+        .tip-result { font-weight:700; font-size:1.2rem; margin-left:auto; }
+        .print-btn { display:inline-block; margin-top:15px; padding:10px 20px; background:var(--header-color); color:white; border:none; border-radius:30px; font-weight:600; cursor:pointer; }
+        .print-btn:hover { background:var(--accent); }
+        .modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:var(--modal-bg); backdrop-filter:blur(6px); display:none; justify-content:center; align-items:center; z-index:1000; flex-direction:column; }
+        .modal-overlay.active { display:flex; }
+        .modal-content { position:relative; max-width:90vw; max-height:85vh; display:flex; justify-content:center; align-items:center; overflow:hidden; }
+        .modal-content img { max-width:100%; max-height:100%; object-fit:contain; border-radius:12px; transition:transform 0.15s; user-select:none; -webkit-user-drag:none; cursor:grab; }
+        .modal-content img:active { cursor:grabbing; }
+        .modal-close { position:absolute; top:20px; right:30px; font-size:2.5rem; color:white; cursor:pointer; background:rgba(0,0,0,0.4); border-radius:50%; width:50px; height:50px; display:flex; align-items:center; justify-content:center; line-height:1; z-index:1001; }
+        .modal-close:hover { background:rgba(255,255,255,0.3); }
+        .zoom-controls { position:absolute; bottom:25px; left:50%; transform:translateX(-50%); display:flex; gap:15px; background:rgba(0,0,0,0.5); padding:8px 18px; border-radius:40px; z-index:1002; }
+        .zoom-btn { background:white; border:none; font-size:1.5rem; font-weight:bold; color:#1e3c72; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
+        .zoom-btn:hover { background:#f0f0f0; }
+        @media (max-width:600px) {
+            .trip-container { margin:0 5px; border-radius:20px; }
+            section { padding:15px 18px; }
+            .day-images img { width:100%; }
+            .food-list { grid-template-columns:1fr; }
+            h1 { font-size:2rem; }
+            .timer-block { font-size:1rem; gap:8px; }
+            .tip-calculator { flex-direction:column; align-items:flex-start; }
+        }
+        @media print {
+            body { background:white; padding:0; }
+            .trip-container { box-shadow:none; border-radius:0; max-width:100%; }
+            .modal-overlay, .zoom-controls, .theme-toggle, .print-btn, .timer-block, #restaurantMap, .map-img, .gcal-btn, .playlist-wrapper, .tip-calculator { display:none !important; }
+            .day-card { break-inside:avoid; border-left:3px solid black; }
+            section { padding:10px 0; border-bottom:1px dashed #ccc; }
+            h2 { border-bottom:2px solid black; }
+        }
+        html { scroll-behavior:smooth; }
+        footer { text-align:center; padding:20px; font-size:0.9rem; color:var(--footer-text); }
+    </style>
+</head>
+<body>
+<div class="trip-container">
+    <header>
+        <button class="theme-toggle" id="themeToggle" aria-label="Переключить тему">
+            <span class="theme-icon" id="themeIcon">🌙</span>
+        </button>
+        <img src="logo.png" alt="Логотип" class="logo">
+        <h1>Поездка в Казань</h1>
+    </header>
+
+    <section style="padding-top:0;">
+        <div class="timer-block" id="timerBlock">⏳ Загрузка таймера...</div>
+    </section>
+
+    <section>
+        <h2>🌤️ Погода в Казани</h2>
+        <div class="weather-grid" id="weatherGrid">
+            <p style="text-align:center;padding:20px;">🔄 Загрузка прогноза...</p>
+        </div>
+        <p style="font-size:0.8rem; margin-top:8px; opacity:0.7;">Прогноз от сервиса wttr.in • Обновляется автоматически</p>
+    </section>
+
+    <section>
+        <h2>✅ Что взять с собой</h2>
+        <ul class="checklist" id="checklist"></ul>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <p class="progress-text" id="progressText">Собрано 0 из 0</p>
+    </section>
+
+    <section>
+        <h2>🛍️ Сувениры и покупки</h2>
+        <ul class="checklist" id="souvenirChecklist"></ul>
+        <div class="progress-bar"><div class="progress-fill" id="souvenirProgressFill"></div></div>
+        <p class="progress-text" id="souvenirProgressText">Куплено 0 из 0</p>
+    </section>
+
+    <section>
+        <h2>🗺️ Карта</h2>
+        <img src="Karta.png" alt="Карта Казани" class="map-img" id="mapImage">
+        <p style="font-size:0.9rem; opacity:0.7; margin-top:5px;">👆 Нажмите на карту, чтобы открыть в большом размере и приближать</p>
+    </section>
+
+    <section>
+        <h2>📅 Расписание</h2>
+        <ul class="schedule-list" id="scheduleList"></ul>
+    </section>
+
+    <section>
+        <h2>📓 Дневник путешествия</h2>
+        <div id="diaryEntries"></div>
+    </section>
+
+    <section>
+        <h2>📞 Полезные контакты</h2>
+        <div class="contact-grid">
+            <div class="contact-card"><h3>🚕 Такси</h3><p>Яндекс.Такси, Uber</p></div>
+            <div class="contact-card"><h3>🆘 Экстренные службы</h3><p>112</p></div>
+            <div class="contact-card"><h3>🏠 Хозяин квартиры</h3><p>+7 (999) 123-45-67</p></div>
+            <div class="contact-card"><h3>🎫 Гиды</h3><p>+7 (987) 654-32-10</p></div>
+        </div>
+    </section>
+
+    <section>
+        <h2>🎵 Плейлист для поездки</h2>
+        <div class="playlist-wrapper">
+            <iframe frameborder="0" allow="clipboard-write" style="border:none;width:614px;height:556px;" width="614" height="556" src="https://music.yandex.ru/iframe/playlist/Darkner12834/1000">Слушайте <a href="https://music.yandex.ru/playlists/30c1e7e6-6c6f-9a9b-b802-e2c93c54eb4e?utm_source=web&utm_medium=copy_link">Казань</a> — <a href="https://music.yandex.ru/users/Darkner12834">Darkner12834</a> на Яндекс Музыке</iframe>
+        </div>
+    </section>
+
+    <section>
+        <h2>🍽️ Где поесть</h2>
+        <ul class="food-list">
+            <li>Бар-музей Васи Ложкина, ул. Баумана 36</li>
+            <li>9¾, ул. Мусы Джалиля, 6/1</li>
+            <li>Чашечка смысла, ул. Тази Гиззата, 6/31</li>
+            <li>Тюбетей, Кремлёвская ул., 21</li>
+            <li>Level Kitchen & Bar, Кремлёвская ул., 21</li>
+            <li>Полкан, ул. Дзержинского, 16</li>
+            <li>Brooklyn Pizza, Кремлёвская ул., 27</li>
+            <li>Грузинский дворик, ул. Баумана, 60</li>
+            <li>Kitchen, Астрономическая ул., 1/43</li>
+            <li>Сандал Lounge, ул. Мартына Межлаука, 2/42</li>
+            <li>Хочу и буду, ул. Баумана, 25</li>
+            <li>Центральная Пельменная, ул. Ташаяк, 2А</li>
+        </ul>
+        <div id="restaurantMap"></div>
+        <p style="font-size:0.8rem; margin-top:6px; opacity:0.7;">🔴 Все 12 ресторанов отмечены на карте по точным адресам.</p>
+    </section>
+
+    <section>
+        <h2>💰 Бюджет поездки</h2>
+        <table class="budget-table" id="budgetTable">
+            <thead><tr><th>Категория</th><th>План (₽)</th><th>Факт (₽)</th></tr></thead>
+            <tbody>
+                <tr><td>Проживание</td><td>49000</td><td><input type="number" class="fact" value="0"></td></tr>
+                <tr><td>Экскурсии</td><td>37400</td><td><input type="number" class="fact" value="0"></td></tr>
+                <tr><td>Питание</td><td>75000</td><td><input type="number" class="fact" value="0"></td></tr>
+                <tr><td>Транспорт</td><td>17800</td><td><input type="number" class="fact" value="0"></td></tr>
+                <tr><td>Развлечения</td><td>18000</td><td><input type="number" class="fact" value="0"></td></tr>
+                <tr><td>Прочее</td><td>1500</td><td><input type="number" class="fact" value="0"></td></tr>
+            </tbody>
+            <tfoot><tr class="total-row"><td>Итого</td><td id="planTotal">198700</td><td id="factTotal">0</td></tr></tfoot>
+        </table>
+    </section>
+
+    <section>
+        <h2>💸 Калькулятор чаевых</h2>
+        <div class="tip-calculator">
+            <label>Сумма чека: <input type="number" id="billAmount" placeholder="0" value="1000"></label>
+            <label>Процент: <select id="tipPercent"><option value="5">5%</option><option value="10" selected>10%</option><option value="15">15%</option></select></label>
+            <span class="tip-result">Чаевые: <span id="tipResult">100</span> ₽</span>
+        </div>
+    </section>
+
+    <div style="text-align:center; padding:10px 30px 30px;">
+        <button class="print-btn" onclick="window.print()">🖨️ Распечатать / Сохранить в PDF</button>
+    </div>
+
+    <footer>🧳 Хорошей поездки в Казань!</footer>
+</div>
+
+<div class="modal-overlay" id="modal">
+    <span class="modal-close" id="modalClose">&times;</span>
+    <div class="modal-content" id="modalContent">
+        <img src="Karta.png" alt="Карта Казани" id="modalImage">
+    </div>
+    <div class="zoom-controls">
+        <button class="zoom-btn" id="zoomOut" title="Уменьшить">−</button>
+        <button class="zoom-btn" id="zoomIn" title="Приблизить">+</button>
+        <button class="zoom-btn" id="zoomReset" title="Сбросить">↺</button>
+    </div>
+</div>
+
+<script>
+(function() {
+    // Тема
+    const body = document.body;
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const savedTheme = localStorage.getItem('kazan-theme');
+    function setTheme(t) {
+        if (t === 'dark') { body.classList.add('dark-theme'); themeIcon.textContent = '☀️'; }
+        else { body.classList.remove('dark-theme'); themeIcon.textContent = '🌙'; }
+    }
+    if (savedTheme) setTheme(savedTheme);
+    else setTheme((new Date().getHours() >= 20 || new Date().getHours() < 7) ? 'dark' : 'light');
+    themeToggle.addEventListener('click', () => {
+        const next = body.classList.contains('dark-theme') ? 'light' : 'dark';
+        setTheme(next); localStorage.setItem('kazan-theme', next);
+    });
+
+    // Таймер
+    const timerBlock = document.getElementById('timerBlock');
+    function updateTimer() {
+        const target = new Date(2026, 5, 6, 10, 0, 0);
+        const diff = target - new Date();
+        if (diff <= 0) { timerBlock.innerHTML = '🎉 Поездка уже началась!'; return; }
+        const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000),
+              m = Math.floor((diff % 3600000) / 60000), s = Math.floor((diff % 60000) / 1000);
+        timerBlock.innerHTML = `<span>${d} дн</span><span>${h} ч</span><span>${m} мин</span><span>${s} сек</span>`;
+    }
+    updateTimer(); setInterval(updateTimer, 1000);
+
+        // Погода (wttr.in + исторические данные для будущих дат)
+    async function fetchWeather() {
+        const weatherGrid = document.getElementById('weatherGrid');
+        
+        const tripDates = ['2026-06-06', '2026-06-07', '2026-06-08', '2026-06-09', 
+                           '2026-06-10', '2026-06-11', '2026-06-12', '2026-06-13'];
+        const tripLabels = ['6 июн', '7 июн', '8 июн', '9 июн', '10 июн', '11 июн', '12 июн', '13 июн'];
+        
+        // Средняя погода в Казани в июне (климатическая норма)
+        const climateNorm = [
+            { tempMin: 13, tempMax: 23, icon: '⛅', desc: 'Июнь: тепло, возможны дожди' },
+            { tempMin: 13, tempMax: 24, icon: '☀️', desc: 'Июнь: солнечно и тепло' },
+            { tempMin: 14, tempMax: 24, icon: '⛅', desc: 'Июнь: переменная облачность' },
+            { tempMin: 14, tempMax: 25, icon: '☀️', desc: 'Июнь: жарко и солнечно' },
+            { tempMin: 15, tempMax: 25, icon: '⛅', desc: 'Июнь: теплые дни' },
+            { tempMin: 15, tempMax: 26, icon: '☀️', desc: 'Июнь: ясно и жарко' },
+            { tempMin: 14, tempMax: 25, icon: '🌦️', desc: 'Июнь: краткие дожди' },
+            { tempMin: 14, tempMax: 24, icon: '⛅', desc: 'Июнь: облачно с прояснениями' }
+        ];
+        
+        try {
+            const response = await fetch('https://wttr.in/Kazan?format=j1&lang=ru');
+            const data = await response.json();
+            
+            const today = new Date();
+            const daysUntilTrip = Math.ceil((new Date('2026-06-06') - today) / (1000 * 60 * 60 * 24));
+            
+            let html = '';
+            tripDates.forEach((date, index) => {
+                const tripDate = new Date(date);
+                const daysUntil = Math.ceil((tripDate - today) / (1000 * 60 * 60 * 24));
+                
+                // Если до даты осталось 3 дня или меньше - показываем реальный прогноз
+                if (daysUntil <= 3 && data.weather && data.weather[0]) {
+                    const dayData = data.weather[0];
+                    html += `<div class="weather-card">
+                        <div class="weather-date">${tripLabels[index]}</div>
+                        <div class="weather-icon">${getWeatherEmoji(dayData.hourly[4].weatherCode)}</div>
+                        <div class="weather-temp">${dayData.mintempC}° / ${dayData.maxtempC}°</div>
+                        <div class="weather-desc">${dayData.hourly[4].lang_ru[0].value}</div>
+                    </div>`;
+                } 
+                // Если дата уже прошла
+                else if (daysUntil < 0) {
+                    html += `<div class="weather-card">
+                        <div class="weather-date">${tripLabels[index]}</div>
+                        <div class="weather-icon">✅</div>
+                        <div class="weather-temp">—</div>
+                        <div class="weather-desc">День прошёл</div>
+                    </div>`;
+                }
+                // Для будущих дат показываем климатическую норму
+                else {
+                    const norm = climateNorm[index];
+                    html += `<div class="weather-card" style="opacity:0.85;">
+                        <div class="weather-date">${tripLabels[index]}</div>
+                        <div class="weather-icon">${norm.icon}</div>
+                        <div class="weather-temp">~${norm.tempMin}° / ${norm.tempMax}°</div>
+                        <div class="weather-desc" style="font-size:0.75rem;">${norm.desc}</div>
+                        <div style="font-size:0.7rem; margin-top:3px; opacity:0.6;">Уточнится за 3 дня</div>
+                    </div>`;
+                }
+            });
+            weatherGrid.innerHTML = html;
+        } catch (e) {
+            console.error('Ошибка погоды:', e);
+            // Если сервис недоступен - показываем климатическую норму
+            weatherGrid.innerHTML = tripLabels.map((label, index) => {
+                const norm = climateNorm[index];
+                return `<div class="weather-card" style="opacity:0.85;">
+                    <div class="weather-date">${label}</div>
+                    <div class="weather-icon">${norm.icon}</div>
+                    <div class="weather-temp">~${norm.tempMin}° / ${norm.tempMax}°</div>
+                    <div class="weather-desc" style="font-size:0.75rem;">${norm.desc}</div>
+                    <div style="font-size:0.7rem; margin-top:3px; opacity:0.6;">Средняя за июнь</div>
+                </div>`;
+            }).join('');
+        }
+    }
+    
+    function getWeatherEmoji(code) {
+        const emojis = {
+            '113': '☀️', '116': '⛅', '119': '☁️', '122': '☁️',
+            '143': '🌫️', '176': '🌦️', '179': '🌨️', '182': '🌨️',
+            '185': '🌨️', '200': '⛈️', '227': '🌬️', '230': '🌬️',
+            '248': '🌫️', '260': '🌫️', '263': '🌧️', '266': '🌧️',
+            '281': '🌧️', '284': '🌧️', '293': '🌧️', '296': '🌧️',
+            '299': '🌧️', '302': '🌧️', '305': '🌧️', '308': '🌧️',
+            '311': '🌧️', '314': '🌧️', '317': '🌧️', '320': '🌨️',
+            '323': '🌨️', '326': '🌨️', '329': '🌨️', '332': '🌨️',
+            '335': '🌨️', '338': '🌨️', '350': '🌨️', '353': '🌧️',
+            '356': '🌧️', '359': '🌧️', '362': '🌧️', '365': '🌧️',
+            '368': '🌨️', '371': '🌨️', '374': '🌨️', '377': '🌨️',
+            '386': '⛈️', '389': '⛈️', '392': '⛈️', '395': '🌨️'
+        };
+        return emojis[code] || '🌤️';
+    }
+    
+    fetchWeather();
+
+    // Чеклист вещей
+    const items = ['Паспорт и билеты','Зарядка / powerbank','Наличные и карта','Зонт','Купальник','Аптечка','Фотоаппарат','Удобная обувь','Очки','Термос'];
+    const checklistEl = document.getElementById('checklist');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    function loadChecklist() {
+        const saved = JSON.parse(localStorage.getItem('kazan-checklist') || '{}');
+        checklistEl.innerHTML = items.map((it,i) => `<li><input type="checkbox" data-index="${i}" ${saved[i] ? 'checked' : ''}> ${it}</li>`).join('');
+        updateChecklistProgress();
+    }
+    function updateChecklistProgress() {
+        const cbs = document.querySelectorAll('#checklist input[type="checkbox"]');
+        const checked = Array.from(cbs).filter(cb => cb.checked).length;
+        progressFill.style.width = (checked / items.length * 100) + '%';
+        progressText.textContent = `Собрано ${checked} из ${items.length}`;
+    }
+    checklistEl.addEventListener('change', e => {
+        if (e.target.type === 'checkbox') {
+            const saved = JSON.parse(localStorage.getItem('kazan-checklist') || '{}');
+            saved[e.target.dataset.index] = e.target.checked;
+            localStorage.setItem('kazan-checklist', JSON.stringify(saved));
+            updateChecklistProgress();
+        }
+    });
+    loadChecklist();
+
+    // Сувениры
+    const souvenirs = ['Чак-чак','Татарский чай','Тюбетейка','Мёд','Косметика «Татарские травы»','Сукно / платок'];
+    const souvEl = document.getElementById('souvenirChecklist');
+    const souvFill = document.getElementById('souvenirProgressFill');
+    const souvText = document.getElementById('souvenirProgressText');
+    function loadSouvenirs() {
+        const saved = JSON.parse(localStorage.getItem('kazan-souvenirs') || '{}');
+        souvEl.innerHTML = souvenirs.map((s,i) => `<li><input type="checkbox" data-index="${i}" ${saved[i] ? 'checked' : ''}> ${s}</li>`).join('');
+        updateSouvenirProgress();
+    }
+    function updateSouvenirProgress() {
+        const cbs = document.querySelectorAll('#souvenirChecklist input[type="checkbox"]');
+        const checked = Array.from(cbs).filter(cb => cb.checked).length;
+        souvFill.style.width = (checked / souvenirs.length * 100) + '%';
+        souvText.textContent = `Куплено ${checked} из ${souvenirs.length}`;
+    }
+    souvEl.addEventListener('change', e => {
+        if (e.target.type === 'checkbox') {
+            const saved = JSON.parse(localStorage.getItem('kazan-souvenirs') || '{}');
+            saved[e.target.dataset.index] = e.target.checked;
+            localStorage.setItem('kazan-souvenirs', JSON.stringify(saved));
+            updateSouvenirProgress();
+        }
+    });
+    loadSouvenirs();
+
+    // Расписание + Google Calendar + Дневник
+    const scheduleData = [
+        { day:'Суббота', date:'06.06.26', iso:'2026-06-06',
+          events:`<p>10:00 – Выезд с Центрального автовокзала</p><p>Заселение: Коротченко, 2 – <a href="https://sutochno.ru/front/searchapp/detail/1256485?guests_adults=2&guests_childrens=12%2C12&occupied=2026-06-06%3B2026-06-13&term=улица+Коротченко%2C+2&id=1&SW.lat=55.78958338951157&SW.lng=49.08994763024042&NE.lat=55.7971025962935&NE.lng=49.10480706818292&price_per=1" target="_blank" rel="noopener noreferrer">Студия</a></p><p>Детский парк Елмай – <a href="https://parkikazani.ru/park/detskiy-park-elmay/" target="_blank" rel="noopener noreferrer">Парк</a></p><p>Дворец Земледельцев</p>`,
+          imgs:'<div class="day-images"><img src="Elmay.png" alt="Парк Елмай"><img src="Dvorec.png" alt="Дворец Земледельцев"></div>' },
+        { day:'Воскресенье', date:'07.06.26', iso:'2026-06-07',
+          events:'<p>Иннополис с посещением астрономической обсерватории</p>',
+          imgs:'<div class="day-images"><img src="Innopolis.png" alt="Иннополис"><img src="Observ.png" alt="Обсерватория"></div>' },
+        { day:'Понедельник', date:'08.06.26', iso:'2026-06-08',
+          events:'<p>Кремль, набережная, башня Сююмбике – <a href="https://yandex.ru/maps/org/kremlyovskaya_naberezhnaya/37819046643/?ll=49.091061%2C55.777545&z=13" target="_blank" rel="noopener noreferrer">Набережная</a></p>',
+          imgs:'<div class="day-images"><img src="Kreml.png" alt="Кремль"><img src="Naberesh.png" alt="Набережная"><img src="Suumbeke.png" alt="Сююмбике"></div>' },
+        { day:'Вторник', date:'09.06.26', iso:'2026-06-09',
+          events:'<p>Свияжск и Храм Всех Религий – <a href="https://www.sputnik8.com/ru/kazan/activities/55675-ekskursiya-v-sviyazhsk-i-hram-vseh-religiy?event_date=2026-05-28&option_id=18110&event_id=230779507&ticket_id_76027=1#to%20order%20form" target="_blank" rel="noopener noreferrer">Экскурсия</a></p>',
+          imgs:'<div class="day-images"><img src="Hram.png" alt="Храм Всех Религий"></div>' },
+        { day:'Среда', date:'10.06.26', iso:'2026-06-10',
+          events:'<p>19:00 – Выезд (Алёна)</p>', imgs:'' },
+        { day:'Четверг', date:'11.06.26', iso:'2026-06-11',
+          events:'<p>Аквапарк «Ривьера» – <a href="https://kazanriviera.ru/aquapark/" target="_blank" rel="noopener noreferrer">Аквапарк</a></p>', imgs:'' },
+        { day:'Пятница', date:'12.06.26', iso:'2026-06-12',
+          events:'<p>Дворец Впечатлений</p>',
+          imgs:'<div class="day-images"><img src="Vpechat.png" alt="Дворец впечатлений"></div>' },
+        { day:'Суббота', date:'13.06.26', iso:'2026-06-13',
+          events:'<p>15:00 – Выезд</p>', imgs:'' }
+    ];
+    const scheduleList = document.getElementById('scheduleList');
+    const diaryEntries = document.getElementById('diaryEntries');
+    const todayStr = new Date().toISOString().slice(0, 10);
+    let diaryHTML = '';
+    scheduleList.innerHTML = scheduleData.map(d => {
+        const isToday = (d.iso === todayStr);
+        const gcal = `https://www.google.com/calendar/render?action=TEMPLATE&text=Поездка+в+Казань&dates=${d.iso.replace(/-/g, '')}/${d.iso.replace(/-/g, '')}&details=День`;
+        diaryHTML += `<div style="margin-bottom:15px"><strong>${d.date} — ${d.day}</strong><textarea class="notes-area diary-note" data-day="${d.iso}" placeholder="Заметки на этот день..."></textarea></div>`;
+        return `<li class="day-card${isToday ? ' today' : ''}" data-date="${d.iso}">
+            <div class="day-title"><span>${d.day}</span><span class="day-date">${d.date}</span></div>
+            <div class="day-events">${d.events}${d.imgs}
+            <a class="gcal-btn" href="${gcal}" target="_blank" rel="noopener noreferrer">📅 Сохранить в Google Календарь</a></div>
+        </li>`;
+    }).join('');
+    diaryEntries.innerHTML = diaryHTML;
+    document.querySelectorAll('.diary-note').forEach(ta => {
+        const key = 'diary-' + ta.dataset.day;
+        ta.value = localStorage.getItem(key) || '';
+        ta.addEventListener('input', () => localStorage.setItem(key, ta.value));
+    });
+
+    // Бюджет
+    const factInputs = document.querySelectorAll('.fact');
+    const planTotalEl = document.getElementById('planTotal');
+    const factTotalEl = document.getElementById('factTotal');
+    function updateBudgetTotal() {
+        let planSum = 0, factSum = 0;
+        document.querySelectorAll('#budgetTable tbody tr').forEach(row => {
+            planSum += parseInt(row.cells[1].textContent) || 0;
+            factSum += parseInt(row.querySelector('.fact').value) || 0;
+        });
+        planTotalEl.textContent = planSum;
+        factTotalEl.textContent = factSum;
+    }
+    factInputs.forEach(inp => {
+        inp.addEventListener('input', () => {
+            const saved = JSON.parse(localStorage.getItem('kazan-budget') || '{}');
+            saved[inp.closest('tr').cells[0].textContent] = inp.value;
+            localStorage.setItem('kazan-budget', JSON.stringify(saved));
+            updateBudgetTotal();
+        });
+    });
+    (function loadBudget() {
+        const saved = JSON.parse(localStorage.getItem('kazan-budget') || '{}');
+        factInputs.forEach(inp => {
+            const cat = inp.closest('tr').cells[0].textContent;
+            if (saved[cat]) inp.value = saved[cat];
+        });
+        updateBudgetTotal();
+    })();
+
+    // Чаевые
+    const billInput = document.getElementById('billAmount');
+    const tipPercent = document.getElementById('tipPercent');
+    const tipResult = document.getElementById('tipResult');
+    function calcTip() { tipResult.textContent = Math.round((parseFloat(billInput.value) || 0) * parseInt(tipPercent.value) / 100); }
+    billInput.addEventListener('input', calcTip);
+    tipPercent.addEventListener('change', calcTip);
+    calcTip();
+
+    // Модальное окно карты
+    const mapThumb = document.getElementById('mapImage');
+    const modal = document.getElementById('modal');
+    const modalClose = document.getElementById('modalClose');
+    const modalImage = document.getElementById('modalImage');
+    const modalContent = document.getElementById('modalContent');
+    const zoomInBtn = document.getElementById('zoomIn');
+    const zoomOutBtn = document.getElementById('zoomOut');
+    const zoomResetBtn = document.getElementById('zoomReset');
+    let scale = 1, isDragging = false, startX, startY, translateX = 0, translateY = 0;
+    function setTransform() { modalImage.style.transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`; }
+    function resetZoom() { scale = 1; translateX = 0; translateY = 0; modalImage.style.transform = ''; modalImage.style.cursor = 'grab'; isDragging = false; }
+    mapThumb.addEventListener('click', () => { modal.classList.add('active'); resetZoom(); document.body.style.overflow = 'hidden'; });
+    function closeModal() { modal.classList.remove('active'); document.body.style.overflow = ''; resetZoom(); }
+    modalClose.addEventListener('click', closeModal);
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('active')) closeModal(); });
+    zoomInBtn.addEventListener('click', () => { scale = Math.min(scale + 0.3, 4); setTransform(); });
+    zoomOutBtn.addEventListener('click', () => { if (scale <= 0.4) return; scale = Math.max(scale - 0.3, 0.4); if (scale <= 1) { translateX = 0; translateY = 0; } setTransform(); });
+    zoomResetBtn.addEventListener('click', resetZoom);
+    modalContent.addEventListener('wheel', e => { e.preventDefault(); if (e.deltaY < 0) zoomInBtn.click(); else zoomOutBtn.click(); });
+    modalImage.addEventListener('mousedown', e => { if (scale > 1) { e.preventDefault(); isDragging = true; startX = e.clientX - translateX; startY = e.clientY - translateY; modalImage.style.cursor = 'grabbing'; } });
+    window.addEventListener('mousemove', e => { if (!isDragging) return; translateX = e.clientX - startX; translateY = e.clientY - startY; setTransform(); });
+    window.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; modalImage.style.cursor = scale > 1 ? 'grab' : 'default'; } });
+    modalImage.addEventListener('touchstart', e => { if (scale > 1 && e.touches.length === 1) { e.preventDefault(); const touch = e.touches[0]; isDragging = true; startX = touch.clientX - translateX; startY = touch.clientY - translateY; } });
+    modalContent.addEventListener('touchmove', e => { if (isDragging && e.touches.length === 1) { e.preventDefault(); const touch = e.touches[0]; translateX = touch.clientX - startX; translateY = touch.clientY - startY; setTransform(); } }, { passive: false });
+    modalContent.addEventListener('touchend', () => { if (isDragging) isDragging = false; });
+
+    // Карта ресторанов
+    ymaps.ready(function() {
+        var map = new ymaps.Map('restaurantMap', {
+            center: [55.796127, 49.106414],
+            zoom: 14,
+            controls: ['zoomControl', 'fullscreenControl']
+        });
+
+        var addresses = [
+            { name: "Бар-музей Васи Ложкина", addr: "Казань, ул. Баумана, 36" },
+            { name: "9¾", addr: "Казань, ул. Мусы Джалиля, 6/1" },
+            { name: "Чашечка смысла", addr: "Казань, ул. Тази Гиззата, 6/31" },
+            { name: "Тюбетей", addr: "Казань, Кремлёвская ул., 21" },
+            { name: "Level Kitchen & Bar", addr: "Казань, Кремлёвская ул., 21" },
+            { name: "Полкан", addr: "Казань, ул. Дзержинского, 16" },
+            { name: "Brooklyn Pizza", addr: "Казань, Кремлёвская ул., 27" },
+            { name: "Грузинский дворик", addr: "Казань, ул. Баумана, 60" },
+            { name: "Kitchen", addr: "Казань, Астрономическая ул., 1/43" },
+            { name: "Сандал Lounge", addr: "Казань, ул. Мартына Межлаука, 2/42" },
+            { name: "Хочу и буду", addr: "Казань, ул. Баумана, 25" },
+            { name: "Центральная Пельменная", addr: "Казань, ул. Ташаяк, 2А" }
+        ];
+
+        addresses.forEach(function(place) {
+            ymaps.geocode(place.addr, { results: 1 }).then(function(res) {
+                var firstGeo = res.geoObjects.get(0);
+                if (firstGeo) {
+                    map.geoObjects.add(new ymaps.Placemark(firstGeo.geometry.getCoordinates(), {
+                        balloonContent: '<strong>' + place.name + '</strong><br/>' + place.addr
+                    }, {
+                        preset: 'islands#redDotIcon'
+                    }));
+                }
+            });
+        });
+    });
+})();
+</script>
+</body>
+</html>
